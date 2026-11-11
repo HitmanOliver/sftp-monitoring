@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ] # Запускать при пуше в ветку main
+    branches: [ "main", "master" ]
 
 jobs:
   build-and-push:
@@ -26,5 +26,4 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          # Тег образа: ТВОЙ_НИК/monitoring-backend:latest
-          tags: ${{ secrets.zolikmcmillan }}/monitoring-backend:latest
+          tags: ${{ secrets.DOCKER_USERNAME }}/monitoring-backend:latest
