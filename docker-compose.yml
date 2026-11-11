@@ -1,0 +1,64 @@
+services:
+  sftpgo:
+    image: drakkan/sftpgo:latest
+    container_name: sftpgo
+    restart: unless-stopped
+    ports:
+      - "80:80"        # Порт для Nginx (наш сайт)
+      - "8080:8080"    # Порт для админки/клиента SFTPGo
+      - "2022:2022"    # Порт для SFTP
+      - "8000:8000"    # Порт для Python 
+    environment:
+      SFTPGO_LOG_FILE_PATH: ""
+      SFTPGO_CONFIG_FILE: "/etc/sftpgo/sftpgo.json"
+      TZ: "Europe/Moscow"
+    volumes:
+      - sftpgo_data:/srv/sftpgo/data
+      - sftpgo_home:/var/lib/sftpgo
+      - sftpgo_backups:/srv/sftpgo/backups
+      - ./sftpgo.json:/etc/sftpgo/sftpgo.json:ro
+
+  monitor:
+    build: ./backend
+    container_name: monitor
+    restart: unless-stopped
+    network_mode: "service:sftpgo" 
+    depends_on:
+      - sftpgo
+      - postgres
+      - redis
+    environment:
+      PYTHONUNBUFFERED: 1
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    network_mode: "service:sftpgo" 
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - monitor
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: monitoring_db
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+
+volumes:
+  sftpgo_data:
+  sftpgo_home:
+  sftpgo_backups:
+  pg_data:

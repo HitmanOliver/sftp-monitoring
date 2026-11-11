@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Мониторинг сети</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Сетевая активность (Real-time)</h1>
+        <canvas id="myChart" width="800" height="300"></canvas>
+        
+        <h2>Последние события</h2>
+        <table id="eventsTable">
+            <thead>
+                <tr>
+                    <th>Время</th><th>Пользователь</th><th>Действие</th><th>Файл</th><th>Размер (МБ)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('myChart').getContext('2d');
+        const myChart = new Chart(ctx, {
+            type: 'line',
+            data: { 
+                labels: [], 
+                datasets: [
+                    { label: 'Download (KB/s)', data: [], borderColor: 'blue', backgroundColor: 'rgba(0,0,255,0.1)', fill: true, tension: 0.1 }, 
+                    { label: 'Upload (KB/s)', data: [], borderColor: 'red', backgroundColor: 'rgba(255,0,0,0.1)', fill: true, tension: 0.1 }
+                ] 
+            },
+            options: { animation: false, scales: { y: { beginAtZero: true } }, responsive: true }
+        });
+
+        const ws = new WebSocket("ws://" + window.location.host + "/ws");
+        
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            // Используем время из Python, а не локальное
+            myChart.data.labels.push(data.time);
+            myChart.data.datasets[0].data.push(data.download_kb);
+            myChart.data.datasets[1].data.push(data.upload_kb);
+            
+            if (myChart.data.labels.length > 30) { 
+                myChart.data.labels.shift(); 
+                myChart.data.datasets[0].data.shift(); 
+                myChart.data.datasets[1].data.shift(); 
+            }
+            myChart.update();
+        };
+
+        async function loadEvents() {
+            // Запрашиваем 10 событий (из Redis)
+            const response = await fetch('/api/events?limit=10');
+            const events = await response.json();
+            
+            const tbody = document.querySelector('#eventsTable tbody');
+            tbody.innerHTML = ''; // Очищаем таблицу
+            
+            events.forEach(ev => {
+                const row = `<tr>
+                    <td>${ev.time}</td>
+                    <td>${ev.username}</td>
+                    <td style="color: ${ev.action === 'DOWNLOAD' ? 'blue' : 'green'}"><b>${ev.action}</b></td>
+                    <td>${ev.file_path}</td>
+                    <td>${ev.size_mb}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // Загружаем события при старте
+        loadEvents();
+        // И обновляем их каждые 5 секунд
+        setInterval(loadEvents, 5000);
+    </script>
+</body>
+</html>
