@@ -2,7 +2,7 @@
   "common": {
     "actions": {
       "execute_on": ["upload", "download"],
-      "hook": "http://127.0.0.1:8000/webhook"
+      "hook": "http://monitor:8000/webhook"
     }
   }
 }

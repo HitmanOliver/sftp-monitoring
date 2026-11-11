@@ -27,3 +27,26 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/monitoring-backend:latest
+deploy:
+    needs: build-and-push 
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Docker Swarm
+        run: |
+          echo "Инициализация Docker Swarm..."
+          docker swarm init
+          
+          echo "Развертывание стека..."
+          docker stack deploy -c docker-compose.swarm.yml monitoring
+          
+          echo "Ожидание запуска сервисов..."
+          sleep 15
+          
+          echo "Проверка статуса сервисов:"
+          docker stack services monitoring
+          
+          echo "Сбор логов Nginx:"
+          docker service logs monitoring_nginx
